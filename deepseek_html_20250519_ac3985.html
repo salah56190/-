@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة Kanban تشبه Notion</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Sans Arabic', sans-serif;
+      background-color: #f5f5f5;
+    }
+    .dark-mode {
+      background-color: #1a1a1a;
+      color: #e0e0e0;
+    }
+    .kanban-column {
+      min-width: 300px;
+    }
+    .task-card {
+      transition: all 0.2s ease;
+      cursor: grab;
+    }
+    .task-card:active {
+      cursor: grabbing;
+    }
+    .task-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .task-dropzone {
+      min-height: 100px;
+      transition: background-color 0.2s;
+    }
+    .task-dropzone.drag-over {
+      background-color: rgba(59, 130, 246, 0.1);
+    }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+  <div class="flex h-screen overflow-hidden">
+    <!-- الشريط الجانبي -->
+    <div class="w-64 bg-white dark:bg-gray-800 shadow-sm border-r border-gray-200 dark:border-gray-700 flex flex-col">
+      <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+        <h1 class="text-xl font-bold text-gray-800 dark:text-white">لوحة المهام</h1>
+      </div>
+      <div class="flex-1 overflow-y-auto p-2">
+        <button class="sidebar-btn w-full flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+          <i class="fas fa-tasks"></i>
+          <span>جميع المهام</span>
+        </button>
+        <button class="sidebar-btn w-full flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+          <i class="fas fa-calendar"></i>
+          <span>المهام اليومية</span>
+        </button>
+        <button class="sidebar-btn active w-full flex items-center space-x-2 p-2 rounded-lg bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-400">
+          <i class="fas fa-columns"></i>
+          <span>لوحة Kanban</span>
+        </button>
+        <button class="sidebar-btn w-full flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+          <i class="fas fa-check-circle"></i>
+          <span>المكتملة</span>
+        </button>
+      </div>
+      <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+        <button id="newPageBtn" class="w-full flex items-center justify-center space-x-2 p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg">
+          <i class="fas fa-plus"></i>
+          <span>صفحة جديدة</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- المحتوى الرئيسي -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <!-- شريط التنقل العلوي -->
+      <header class="bg-white dark:bg-gray-800 shadow-sm">
+        <div class="flex justify-between items-center p-4">
+          <div class="flex items-center space-x-3">
+            <button id="sidebarToggle" class="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+              <i class="fas fa-bars"></i>
+            </button>
+            <div class="flex items-center space-x-2">
+              <i class="fas fa-home text-gray-500"></i>
+              <span class="text-gray-500">/</span>
+              <span class="font-medium text-gray-700 dark:text-white">لوحة المهام</span>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <button id="searchButton" class="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+              <i class="fas fa-search"></i>
+            </button>
+            <button id="notificationsBtn" class="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 relative">
+              <i class="fas fa-bell"></i>
+              <span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+            </button>
+            <button id="darkModeToggle" class="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+              <i class="fas fa-moon"></i>
+            </button>
+            <div id="userMenuBtn" class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white cursor-pointer">
+              <span>ي</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- لوحة Kanban الرئيسية -->
+      <main class="flex-1 overflow-auto p-4 bg-gray-50 dark:bg-gray-900">
+        <!-- شريط الأدوات -->
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold text-gray-800 dark:text-white">لوحة Kanban</h2>
+          <div class="flex space-x-2">
+            <button id="filterBtn" class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+              <i class="fas fa-filter mr-2"></i>
+              <span>تصفية</span>
+            </button>
+            <button id="newTaskBtn" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg">
+              <i class="fas fa-plus mr-2"></i>
+              <span>مهمة جديدة</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- أعمدة Kanban -->
+        <div class="flex space-x-4 overflow-x-auto pb-4" id="kanbanContainer">
+          <!-- سيتم إضافة الأعمدة ديناميكياً بواسطة JavaScript -->
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- نافذة البحث -->
+  <div id="searchModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-start justify-center pt-20 z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-4">
+      <div class="flex items-center border-b border-gray-200 dark:border-gray-700 pb-2">
+        <i class="fas fa-search text-gray-500 ml-2"></i>
+        <input type="text" id="searchInput" placeholder="ابحث عن مهام أو صفحات..." class="flex-1 bg-transparent outline-none text-gray-800 dark:text-white" autofocus>
+        <button id="closeSearchModal" class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+          <i class="fas fa-times text-gray-500"></i>
+        </button>
+      </div>
+      <div id="searchResults" class="mt-4 max-h-96 overflow-y-auto">
+        <!-- سيتم عرض نتائج البحث هنا -->
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة إضافة مهمة جديدة -->
+  <div id="taskModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-gray-800 dark:text-white">إضافة مهمة جديدة</h3>
+        <button id="closeTaskModal" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <form id="taskForm">
+        <div class="mb-4">
+          <label class="block text-gray-700 dark:text-gray-300 mb-2">عنوان المهمة</label>
+          <input type="text" id="taskTitle" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" required>
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 dark:text-gray-300 mb-2">الوصف</label>
+          <textarea id="taskDescription" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" rows="3"></textarea>
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 dark:text-gray-300 mb-2">الحالة</label>
+          <select id="taskStatus" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+            <option value="todo">المهام الجديدة</option>
+            <option value="inProgress">قيد التنفيذ</option>
+            <option value="review">مراجعة</option>
+            <option value="done">مكتمل</option>
+          </select>
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 dark:text-gray-300 mb-2">التاغات</label>
+          <div class="flex flex-wrap gap-2" id="tagsContainer">
+            <span class="tag-option px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full cursor-pointer" data-color="blue">تصميم</span>
+            <span class="tag-option px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full cursor-pointer" data-color="red">عاجل</span>
+            <span class="tag-option px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full cursor-pointer" data-color="green">تطوير</span>
+            <span class="tag-option px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full cursor-pointer" data-color="yellow">متوسط</span>
+          </div>
+          <input type="hidden" id="selectedTags">
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 dark:text-gray-300 mb-2">تاريخ الاستحقاق</label>
+          <input type="date" id="taskDueDate" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+        </div>
+        <div class="flex justify-end space-x-2">
+          <button type="button" id="cancelTask" class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
+            إلغاء
+          </button>
+          <button type="submit" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg">
+            حفظ
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- قائمة المستخدم -->
+  <div id="userMenu" class="fixed right-4 top-16 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 hidden z-50 w-48">
+    <div class="p-2 border-b border-gray-200 dark:border-gray-700">
+      <div class="text-sm text-gray-700 dark:text-gray-300 px-2 py-1">مسجل كـ: <span class="font-medium">ياسر</span></div>
+    </div>
+    <div class="p-1">
+      <button class="user-menu-item w-full text-right px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+        <i class="fas fa-user-circle ml-2"></i> الملف الشخصي
+      </button>
+      <button class="user-menu-item w-full text-right px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+        <i class="fas fa-cog ml-2"></i> الإعدادات
+      </button>
+      <button id="logoutBtn" class="user-menu-item w-full text-right px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+        <i class="fas fa-sign-out-alt ml-2"></i> تسجيل الخروج
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // بيانات التطبيق
+    const appData = {
+      currentUser: "ياسر",
+      columns: {
+        'todo': { id: 'todo', title: 'المهام الجديدة', tasks: [
+          { id: 'task1', title: 'تصميم واجهة المستخدم', description: 'إنشاء نموذج أولي للتطبيق باستخدام Figma', 
+            tags: ['تصميم', 'عاجل'], dueDate: '2023-06-15', attachments: 2, assignedTo: ['ي', 'م'] },
+          { id: 'task2', title: 'تحليل المتطلبات', description: 'جمع متطلبات العملاء وتحليلها', 
+            tags: ['تحليل'], dueDate: null, attachments: 0, assignedTo: [] }
+        ]},
+        'inProgress': { id: 'inProgress', title: 'قيد التنفيذ', tasks: [
+          { id: 'task3', title: 'برمجة الواجهة الأمامية', description: 'تطوير واجهة المستخدم باستخدام React', 
+            tags: ['تطوير', 'متوسط'], dueDate: '2023-06-20', attachments: 0, assignedTo: ['ع'] },
+          { id: 'task4', title: 'إنشاء قاعدة البيانات', description: 'تصميم وتنفيذ هيكل قاعدة البيانات', 
+            tags: ['تطوير', 'عاجل'], dueDate: null, attachments: 0, assignedTo: [] }
+        ]},
+        'review': { id: 'review', title: 'مراجعة', tasks: [
+          { id: 'task5', title: 'اختبار النظام', description: 'إجراء اختبارات الجودة على التطبيق', 
+            tags: ['اختبار'], dueDate: null, attachments: 0, assignedTo: [] }
+        ]},
+        'done': { id: 'done', title: 'مكتمل', tasks: [
+          { id: 'task6', title: 'إنشاء مستند المشروع', description: 'كتابة مستند متطلبات المشروع', 
+            tags: ['توثيق'], dueDate: '2023-06-10', attachments: 1, assignedTo: [] },
+          { id: 'task7', title: 'اجتماع التخطيط', description: 'عقد اجتماع مع الفريق لمناقشة الخطة', 
+            tags: ['اجتماع'], dueDate: '2023-06-05', attachments: 0, assignedTo: ['ي', 'م', 'ع'] }
+        ]}
+      },
+      selectedTags: []
+    };
+
+    // تهيئة التطبيق عند تحميل الصفحة
+    document.addEventListener('DOMContentLoaded', function() {
+      initDarkMode();
+      renderKanbanBoard();
+      setupEventListeners();
+    });
+
+    // تهيئة الوضع المظلم
+    function initDarkMode() {
+      const darkModeToggle = document.getElementById('darkModeToggle');
+      const body = document.body;
+
+      // تحميل الوضع المظلم من التخزين المحلي
+      if (localStorage.getItem('darkMode') === 'true') {
+        body.classList.add('dark-mode');
+        darkModeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+      }
+
+      // تبديل الوضع المظلم
+      darkModeToggle.addEventListener('click', () => {
+        body.classList.toggle('dark-mode');
+        localStorage.setItem('darkMode', body.classList.contains('dark-mode'));
+        darkModeToggle.innerHTML = body.classList.contains('dark-mode') ? 
+          '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+      });
+    }
+
+    // عرض لوحة Kanban
+    function renderKanbanBoard() {
+      const kanbanContainer = document.getElementById('kanbanContainer');
+      kanbanContainer.innerHTML = '';
+
+      for (const columnId in appData.columns) {
+        const column = appData.columns[columnId];
+        const columnElement = document.createElement('div');
+        columnElement.className = 'kanban-column flex-shrink-0 bg-white dark:bg-gray-800 rounded-lg shadow p-4';
+        columnElement.dataset.columnId = column.id;
+
+        columnElement.innerHTML = `
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="font-semibold text-gray-800 dark:text-white">${column.title}</h3>
+            <span class="bg-${getColumnColor(column.id)}-100 dark:bg-${getColumnColor(column.id)}-900 text-${getColumnColor(column.id)}-800 dark:text-${getColumnColor(column.id)}-200 text-xs px-2 py-1 rounded-full">
+              ${column.tasks.length}
+            </span>
+          </div>
+          <div class="task-dropzone space-y-3" data-column-id="${column.id}">
+            ${renderTasks(column.tasks)}
+            <button class="add-task-btn w-full flex items-center justify-center p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+              <i class="fas fa-plus mr-2"></i>
+              <span>إضافة مهمة</span>
+            </button>
+          </div>
+        `;
+
+        kanbanContainer.appendChild(columnElement);
+      }
+
+      // إضافة مستمعي الأحداث للعناصر المنشأة ديناميكياً
+      setupDynamicEventListeners();
+      setupDragAndDrop();
+    }
+
+    // عرض المهام في العمود
+    function renderTasks(tasks) {
+      return tasks.map(task => `
+        <div class="task-card bg-gray-50 dark:bg-gray-700 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 mb-3" 
+             data-task-id="${task.id}" draggable="true">
+          <div class="flex justify-between">
+            <h4 class="font-medium text-gray-800 dark:text-white">${task.title}</h4>
+            <button class="task-menu-btn text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+              <i class="fas fa-ellipsis-v"></i>
+            </button>
+          </div>
+          ${task.description ? `<p class="text-sm text-gray-600 dark:text-gray-300 mt-1">${task.description}</p>` : ''}
+          ${task.tags.length > 0 ? `
+            <div class="flex flex-wrap gap-2 mt-2">
+              ${task.tags.map(tag => `
+                <span class="px-2 py-1 ${getTagColorClass(tag)} text-xs rounded-full">
+                  ${tag}
+                </span>
+              `).join('')}
+            </div>
+          ` : ''}
+          ${task.dueDate || task.attachments > 0 || task.assignedTo.length > 0 ? `
+            <div class="flex items-center justify-between mt-3">
+              <div class="flex items-center space-x-2">
+                ${task.dueDate ? `
+                  <span class="text-xs text-gray-500 dark:text-gray-400">
+                    <i class="fas fa-calendar-alt mr-1"></i> 
+                    ${formatDate(task.dueDate)}
+                  </span>
+                ` : ''}
+                ${task.attachments > 0 ? `
+                  <span class="text-xs text-gray-500 dark:text-gray-400">
+                    <i class="fas fa-paperclip mr-1"></i> 
+                    ${task.attachments}
+                  </span>
+                ` : ''}
+              </div>
+              ${task.assignedTo.length > 0 ? `
+                <div class="flex -space-x-1">
+                  ${task.assignedTo.map(user => `
+                    <div class="w-6 h-6 rounded-full ${getUserColor(user)} border-2 border-white dark:border-gray-800"></div>
+                  `).join('')}
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    // إعداد مستمعي الأحداث
+    function setupEventListeners() {
+      // تبديل الشريط الجانبي
+      document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
+
+      // نافذة البحث
+      document.getElementById('searchButton').addEventListener('click', openSearchModal);
+      document.getElementById('closeSearchModal').addEventListener('click', closeSearchModal);
+
+      // نافذة المهمة الجديدة
+      document.getElementById('newTaskBtn').addEventListener('click', openTaskModal);
+      document.getElementById('closeTaskModal').addEventListener('click', closeTaskModal);
+      document.getElementById('cancelTask').addEventListener('click', closeTaskModal);
+      document.getElementById('taskForm').addEventListener('submit', saveTask);
+
+      // قائمة المستخدم
+      document.getElementById('userMenuBtn').addEventListener('click', toggleUserMenu);
+      document.getElementById('logoutBtn').addEventListener('click', logout);
+
+      // النقر خارج القوائم لإغلاقها
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('#userMenu') && !e.target.closest('#userMenuBtn')) {
+          document.getElementById('userMenu').classList.add('hidden');
+        }
+      });
+
+      // تصفية المهام
+      document.getElementById('filterBtn').addEventListener('click', openFilterMenu);
+
+      // إنشاء صفحة جديدة
+      document.getElementById('newPageBtn').addEventListener('click', createNewPage);
+    }
+
+    // إعداد مستمعي الأحداث للعناصر المنشأة ديناميكياً
+    function setupDynamicEventListeners() {
+      // أزرار إضافة مهمة في كل عمود
+      document.querySelectorAll('.add-task-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const columnId = this.closest('.task-dropzone').dataset.columnId;
+          openTaskModal(columnId);
+        });
+      });
+
+      // أزرار قائمة المهام
+      document.querySelectorAll('.task-menu-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const taskId = this.closest('.task-card').dataset.taskId;
+          openTaskMenu(this, taskId);
+        });
+      });
+
+      // النقر على بطاقة المهمة لعرض التفاصيل
+      document.querySelectorAll('.task-card').forEach(card => {
+        card.addEventListener('click', function() {
+          const taskId = this.dataset.taskId;
+          viewTaskDetails(taskId);
+        });
+      });
+
+      // اختيار التاغات
+      document.querySelectorAll('.tag-option').forEach(tag => {
+        tag.addEventListener('click', function() {
+          this.classList.toggle('ring-2');
+          this.classList.toggle('ring-blue-500');
+          updateSelectedTags();
+        });
+      });
+    }
+
+    // إعداد السحب والإفلات
+    function setupDragAndDrop() {
+      const tasks = document.querySelectorAll('.task-card');
+      const dropzones = document.querySelectorAll('.task-dropzone');
+
+      tasks.forEach(task => {
+        task.addEventListener('dragstart', dragStart);
+      });
+
+      dropzones.forEach(zone => {
+        zone.addEventListener('dragover', dragOver);
+        zone.addEventListener('dragleave', dragLeave);
+        zone.addEventListener('drop', drop);
+      });
+    }
+
+    // وظائف السحب والإفلات
+    function dragStart(e) {
+      e.dataTransfer.setData('text/plain', e.target.dataset.taskId);
+      setTimeout(() => {
+        e.target.classList.add('opacity-0');
+      }, 0);
+    }
+
+    function dragOver(e) {
+      e.preventDefault();
+      e.currentTarget.classList.add('drag-over');
+    }
+
+    function dragLeave(e) {
+      e.currentTarget.classList.remove('drag-over');
+    }
+
+    function drop(e) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('drag-over');
+      
+      const taskId = e.dataTransfer.getData('text/plain');
+      const draggedTask = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+      const newColumnId = e.currentTarget.dataset.columnId;
+      
+      // تحديث البيانات
+      moveTaskToColumn(taskId, newColumnId);
+      
+      // إعادة عرض اللوحة
+      renderKanbanBoard();
+    }
+
+    // وظائف التطبيق
+    function toggleSidebar() {
+      document.querySelector('.w-64').classList.toggle('hidden');
+    }
+
+    function openSearchModal() {
+      document.getElementById('searchModal').classList.remove('hidden');
+      document.getElementById('searchModal').classList.add('flex');
+      document.getElementById('searchInput').focus();
+    }
+
+    function closeSearchModal() {
+      document.getElementById('searchModal').classList.add('hidden');
+      document.getElementById('searchModal').classList.remove('flex');
+    }
+
+    function openTaskModal(columnId = 'todo') {
+      document.getElementById('taskStatus').value = columnId;
+      document.getElementById('taskModal').classList.remove('hidden');
+      document.getElementById('taskModal').classList.add('flex');
+      document.getElementById('taskTitle').focus();
+    }
+
+    function closeTaskModal() {
+      document.getElementById('taskModal').classList.add('hidden');
+      document.getElementById('taskModal').classList.remove('flex');
+      document.getElementById('taskForm').reset();
+      appData.selectedTags = [];
+      updateSelectedTags();
+    }
+
+    function saveTask(e) {
+      e.preventDefault();
+      
+      const title = document.getElementById('taskTitle').value;
+      const description = document.getElementById('taskDescription').value;
+      const status = document.getElementById('taskStatus').value;
+      const dueDate = document.getElementById('taskDueDate').value;
+      const tags = appData.selectedTags;
+      
+      // إنشاء مهمة جديدة
+      const newTask = {
+        id: 'task' + Date.now(),
+        title,
+        description,
+        tags,
+        dueDate: dueDate || null,
+        attachments: 0,
+        assignedTo: []
+      };
+      
+      // إضافة المهمة إلى العمود المناسب
+      appData.columns[status].tasks.push(newTask);
+      
+      // إعادة عرض اللوحة
+      renderKanbanBoard();
+      closeTaskModal();
+    }
+
+    function toggleUserMenu() {
+      const menu = document.getElementById('userMenu');
+      menu.classList.toggle('hidden');
+    }
+
+    function logout() {
+      alert('تم تسجيل الخروج بنجاح');
+      // هنا يمكنك إضافة تحويل إلى صفحة تسجيل الدخول
+    }
+
+    function openFilterMenu() {
+      alert('سيتم عرض قائمة التصفية هنا');
+      // يمكنك تطوير هذه الوظيفة لعرض قائمة تصفية متقدمة
+    }
+
+    function createNewPage() {
+      alert('سيتم إنشاء صفحة جديدة');
+      // يمكنك تطوير هذه الوظيفة لإنشاء صفحة جديدة
+    }
+
+    function openTaskMenu(button, taskId) {
+      alert(`فتح قائمة المهمة ${taskId}`);
+      // يمكنك تطوير هذه الوظيفة لعرض قائمة سياقية للمهمة
+    }
+
+    function viewTaskDetails(taskId) {
+      alert(`عرض تفاصيل المهمة ${taskId}`);
+      // يمكنك تطوير هذه الوظيفة لعرض تفاصيل المهمة في نافذة منبثقة
+    }
+
+    function moveTaskToColumn(taskId, newColumnId) {
+      // البحث عن المهمة في جميع الأعمدة
+      for (const columnId in appData.columns) {
+        const column = appData.columns[columnId];
+        const taskIndex = column.tasks.findIndex(task => task.id === taskId);
+        
+        if (taskIndex !== -1) {
+          // نقل المهمة إلى العمود الجديد
+          const [task] = column.tasks.splice(taskIndex, 1);
+          appData.columns[newColumnId].tasks.push(task);
+          break;
+        }
+      }
+    }
+
+    function updateSelectedTags() {
+      const selectedTags = [];
+      document.querySelectorAll('.tag-option.ring-2').forEach(tag => {
+        selectedTags.push(tag.textContent.trim());
+      });
+      appData.selectedTags = selectedTags;
+      document.getElementById('selectedTags').value = selectedTags.join(',');
+    }
+
+    // وظائف مساعدة
+    function getColumnColor(columnId) {
+      const colors = {
+        'todo': 'gray',
+        'inProgress': 'blue',
+        'review': 'yellow',
+        'done': 'green'
+      };
+      return colors[columnId] || 'gray';
+    }
+
+    function getTagColorClass(tag) {
+      const colors = {
+        'تصميم': 'bg-blue-100 text-blue-800',
+        'عاجل': 'bg-red-100 text-red-800',
+        'تطوير': 'bg-green-100 text-green-800',
+        'متوسط': 'bg-yellow-100 text-yellow-800',
+        'تحليل': 'bg-purple-100 text-purple-800',
+        'اختبار': 'bg-pink-100 text-pink-800',
+        'توثيق': 'bg-indigo-100 text-indigo-800',
+        'اجتماع': 'bg-gray-100 text-gray-800'
+      };
+      return colors[tag] || 'bg-gray-100 text-gray-800';
+    }
+
+    function getUserColor(user) {
+      const colors = {
+        'ي': 'bg-blue-500',
+        'م': 'bg-green-500',
+        'ع': 'bg-purple-500'
+      };
+      return colors[user] || 'bg-gray-500';
+    }
+
+    function formatDate(dateString) {
+      const options = { year: 'numeric', month: 'long', day: 'numeric' };
+      return new Date(dateString).toLocaleDateString('ar-EG', options);
+    }
+  </script>
+</body>
+</html>
